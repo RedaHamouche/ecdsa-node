@@ -18,12 +18,6 @@ function getEthAddress(publicKey) {
   return "0x" + toHex(address);
 }
 
-// Function to recover public key from signature
-function recoverPublicKey(message, signature, recoveryBit) {
-  const messageHash = keccak256(Buffer.from(message));
-  return secp.recoverPublicKey(messageHash, signature, recoveryBit);
-}
-
 // Generate private keys
 const privateKey1 = secp.utils.randomPrivateKey();
 const privateKey2 = secp.utils.randomPrivateKey();
@@ -64,22 +58,15 @@ app.get("/balance/:address", (req, res) => {
 });
 
 app.post("/send", (req, res) => {
-  const { sender, recipient, amount, signature, recoveryBit } = req.body;
+  const { sender, recipient, amount, privateKey } = req.body;
 
-  // Verify the signature
   try {
-    const message = JSON.stringify({
-      sender,
-      recipient,
-      amount,
-    });
+    // Verify the private key matches the sender's public key
+    const publicKey = secp.getPublicKey(privateKey);
+    const senderAddress = getEthAddress(publicKey);
 
-    const publicKey = recoverPublicKey(message, signature, recoveryBit);
-    const recoveredAddress = getEthAddress(publicKey);
-
-    // Check if the recovered address matches the sender
-    if (recoveredAddress !== sender) {
-      res.status(400).send({ message: "Invalid signature!" });
+    if (senderAddress !== sender) {
+      res.status(400).send({ message: "Invalid private key!" });
       return;
     }
 
@@ -94,7 +81,7 @@ app.post("/send", (req, res) => {
       res.send({ balance: balances[sender] });
     }
   } catch (error) {
-    res.status(400).send({ message: "Invalid signature!" });
+    res.status(400).send({ message: "Invalid private key!" });
   }
 });
 
